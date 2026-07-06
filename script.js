@@ -16,7 +16,13 @@ ws.onclose = () => {
 };
 
 ws.onmessage = (event) => {
-    addMessage(event.data, false);
+    const data = JSON.parse(event.data);
+    
+    if (data.type === 'history') {
+        addMessage(data.text, false);
+    } else if (data.type === 'message') {
+        addMessage(data.text, false);
+    }
 };
 
 const sendMessage = () => {
