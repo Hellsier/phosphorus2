@@ -1,15 +1,31 @@
-const express = require("express");
-const path = require("path");
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const express = require('express');
+const http = require('http');
+const { WebSocketServer } = require('ws');
+
 const app = express();
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
+const PORT = process.env.PORT || 10000;
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(__dirname));
 
-app.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+wss.on('connection', (ws) => {
+    console.log('Новое подключение');
+
+    ws.on('message', (data) => {
+        const text = data.toString();
+        wss.clients.forEach((client) => {
+            if (client !== ws && client.readyState === 1) {
+                client.send(text);
+            }
+        });
+    });
+
+    ws.on('close', () => {
+        console.log('Клиент отключился');
+    });
 });
 
-app.listen(3000, () => {
-    console.log("Сервер запущен: http://localhost:3000");
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
