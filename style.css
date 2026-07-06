@@ -1,72 +1,92 @@
-body{
-    margin: 0;
-    background: linear-gradient(65deg, rgb(23, 29, 41) 5%, rgb(31, 30, 35) 95%);
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: linear-gradient(65deg, #171d29 5%, #1f1e23 95%);
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
-    font-family: Arial;
+    font-family: Arial, sans-serif;
 }
 
-.chat{
-    width:500px;
-    height:700px;
-    background:#2B2D31;
-    border-radius:15px;
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
-
+.chat {
+    width: 500px;
+    max-width: 95vw;
+    height: 700px;
+    max-height: 90vh;
+    background: #2B2D31;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.header{
-    background:#1E1F22;
-    color:white;
-    padding:20px;
-    font-size:24px;
-    text-align:center;
+.header {
+    background: #1E1F22;
+    color: white;
+    padding: 20px;
+    font-size: 24px;
+    text-align: center;
+    font-weight: bold;
 }
 
-#messages{
-    flex:1;
-    padding:20px;
-    overflow-y:auto;
+#messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
 }
 
 .message {
-    background: #40444B;
-    color: white;
-    padding: 12px;
-    border-radius: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
     margin-bottom: 10px;
-    display: block;
     max-width: 70%;
-    margin-left: 50%;
+    word-wrap: break-word;
+}
+
+.message.mine {
+    background: #5865F2;
+    color: white;
+    margin-left: auto;
     margin-right: 0;
 }
 
-
-.bottom{
-    display:flex;
-    padding:15px;
-    gap:10px;
-    background:#1E1F22;
+.message.other {
+    background: #40444B;
+    color: white;
+    margin-left: 0;
+    margin-right: auto;
 }
 
-input{
-    flex:1;
-    padding:12px;
-    border:none;
-    border-radius:8px;
-    font-size:16px;
+.bottom {
+    display: flex;
+    padding: 15px;
+    gap: 10px;
+    background: #1E1F22;
 }
 
-button{
-    width:60px;
-    border:none;
-    border-radius:8px;
-    background:#5865F2;
-    color:white;
-    font-size:22px;
-    cursor:pointer;
+input {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #40444B;
+    color: white;
+    outline: none;
 }
+
+input::placeholder { color: #999; }
+
+button {
+    width: 55px;
+    border: none;
+    border-radius: 10px;
+    background: #5865F2;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover { background: #4752C4; }
