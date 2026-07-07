@@ -1,0 +1,212 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background: linear-gradient(65deg, #171d29 5%, #1f1e23 95%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: Arial, sans-serif;
+}
+
+.chat {
+    width: 500px;
+    max-width: 95vw;
+    height: 700px;
+    max-height: 90vh;
+    background: #2B2D31;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.header {
+    background: #1E1F22;
+    color: white;
+    padding: 20px;
+    font-size: 24px;
+    text-align: center;
+    font-weight: bold;
+}
+
+#messages {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.message {
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 10px;
+    max-width: 70%;
+    word-wrap: break-word;
+}
+
+.message.mine {
+    background: #5865F2;
+    color: white;
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.message.other {
+    background: #40444B;
+    color: white;
+    margin-left: 0;
+    margin-right: auto;
+}
+
+.bottom {
+    display: flex;
+    padding: 15px;
+    gap: 10px;
+    background: #1E1F22;
+}
+
+input {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    background: #40444B;
+    color: white;
+    outline: none;
+}
+
+input::placeholder { color: #999; }
+
+button {
+    width: 55px;
+    border: none;
+    border-radius: 10px;
+    background: #5865F2;
+    color: white;
+    font-size: 22px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+button:hover { background: #4752C4; }
+
+#authScreen {
+
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.65);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    backdrop-filter: blur(6px);
+
+}
+
+.authWindow {
+    width: 380px;
+    background: #2B2D31;
+    border-radius: 18px;
+    padding: 35px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0px 0px 30px rgba(0,0,0,.4);
+}
+
+.authWindow h1{
+    color:white;
+    text-align:center;
+    margin:0;
+}
+
+#authTitle{
+    color:#b9bbbe;
+    text-align:center;
+    margin-bottom:10px;
+}
+
+.authWindow input{
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    background:#40444B;
+    color:white;
+    font-size:15px;
+}
+
+.authWindow input::placeholder{
+    color:#b9bbbe;
+}
+
+#authButton{
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    background:#5865F2;
+    color:white;
+    font-size:16px;
+    transition:.2s;
+    width: max-content;
+    padding: 10px 20px;
+    text-align: center;
+}
+
+#authButton:hover{
+    transform:scale(1.02);
+}
+
+#switchMode{
+    text-align:center;
+    color:#6EA8FE;
+    cursor:pointer;
+    user-select:none;
+}
+
+#switchMode:hover{
+    text-decoration:underline;
+}
+
+#authMessage{
+    text-align:center;
+    color:#ff8c8c;
+    min-height:20px;
+}
+
+.bounce-text {
+  display: inline-block;
+}
+
+.bounce-text span {
+  display: inline-block;
+  animation: bounce 1s infinite ease-in-out;
+  
+  background: linear-gradient(46deg, rgb(120, 124, 225) 5%, rgb(241, 211, 153) 95%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+
+  background-size: 11ch auto;
+  background-repeat: no-repeat;
+}
+
+.bounce-text span:nth-child(1) { animation-delay: 0.1s; background-position: 0ch center; }
+.bounce-text span:nth-child(2) { animation-delay: 0.2s; background-position: -1ch center; }
+.bounce-text span:nth-child(3) { animation-delay: 0.3s; background-position: -2ch center; }
+.bounce-text span:nth-child(4) { animation-delay: 0.4s; background-position: -3ch center; }
+.bounce-text span:nth-child(5) { animation-delay: 0.5s; background-position: -4ch center; }
+.bounce-text span:nth-child(6) { animation-delay: 0.6s; background-position: -5ch center; }
+.bounce-text span:nth-child(7) { animation-delay: 0.7s; background-position: -6ch center; }
+.bounce-text span:nth-child(8) { animation-delay: 0.8s; background-position: -7ch center; }
+.bounce-text span:nth-child(9) { animation-delay: 0.9s; background-position: -8ch center; }
+.bounce-text span:nth-child(10) { animation-delay: 1.0s; background-position: -9ch center; }
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  20% { transform: translateY(-10px); }
+}
