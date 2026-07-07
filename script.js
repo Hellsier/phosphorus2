@@ -1,4 +1,3 @@
-
 const authScreen = document.getElementById("authScreen");
 const chatContainer = document.getElementById("chatContainer");
 const authTitle = document.getElementById("authTitle");
@@ -130,16 +129,23 @@ function connectWebSocket(user) {
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === 'history' || data.type === 'message') {
-            addMessage(data.text, false);
+
+        if (data.type === 'history') {
+            messages.innerHTML = "";
+            data.messages.forEach((msg) => {
+                addMessage(msg.nickname, msg.text, msg.nickname === user.nickname);
+            });
+        }
+
+        if (data.type === 'message') {
+            addMessage(data.nickname, data.text, data.nickname === user.nickname);
         }
     };
 
     const sendMessage = () => {
         const text = input.value.trim();
         if (text === "" || !connected) return;
-        ws.send(`${user.nickname}: ${text}`);
-        addMessage(text, true);
+        ws.send(JSON.stringify({ nickname: user.nickname, text }));
         input.value = "";
         input.focus();
     };
@@ -153,11 +159,22 @@ function connectWebSocket(user) {
     });
 }
 
-function addMessage(text, isMine) {
+function addMessage(nickname, text, isMine) {
     const msg = document.createElement("div");
     msg.className = "message";
     msg.classList.add(isMine ? "mine" : "other");
-    msg.textContent = text;
+
+    if (!isMine) {
+        const nameEl = document.createElement("div");
+        nameEl.className = "message-nickname";
+        nameEl.textContent = nickname;
+        msg.appendChild(nameEl);
+    }
+
+    const textEl = document.createElement("div");
+    textEl.textContent = text;
+    msg.appendChild(textEl);
+
     messages.appendChild(msg);
     messages.scrollTop = messages.scrollHeight;
 }
@@ -173,4 +190,3 @@ const savedUser = localStorage.getItem("chatUser");
 if (savedUser) {
     enterChat(JSON.parse(savedUser));
 }
- 

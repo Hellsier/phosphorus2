@@ -2,17 +2,19 @@
   "name": "phosphorus",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@libsql/client": "^0.14.0",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^16.4.5",
     "express": "^5.2.1",
-    "socket.io": "^4.8.3",
-    "sqlite3": "^6.0.1"
+    "ws": "^8.18.0"
   }
 }
