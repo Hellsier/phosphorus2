@@ -9,13 +9,90 @@ body {
     font-family: Arial, sans-serif;
 }
 
-.chat {
-    width: 500px;
-    max-width: 95vw;
+#chatContainer {
+    display: flex;
     height: 700px;
     max-height: 90vh;
-    background: #2B2D31;
+    width: 780px;
+    max-width: 95vw;
     border-radius: 15px;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 230px;
+    min-width: 230px;
+    background: #232428;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #1E1F22;
+}
+
+.sidebarHeader {
+    padding: 18px 16px;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+    background: #1E1F22;
+}
+
+#contactsList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.contactItem {
+    padding: 12px 14px;
+    border-radius: 8px;
+    color: #b9bbbe;
+    cursor: pointer;
+    margin-bottom: 4px;
+    font-size: 14px;
+    transition: background 0.15s;
+    word-break: break-word;
+}
+
+.contactItem:hover {
+    background: #2f3136;
+}
+
+.contactItem.active {
+    background: #5865F2;
+    color: white;
+}
+
+.addContact {
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    border-top: 1px solid #1E1F22;
+}
+
+.addContact input {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+.addContact button {
+    width: 36px;
+    border-radius: 8px;
+    font-size: 18px;
+}
+
+#addContactMessage {
+    font-size: 12px;
+    text-align: center;
+    color: #ff8c8c;
+    min-height: 16px;
+    padding: 0 10px 8px;
+}
+
+.chat {
+    flex: 1;
+    background: #2B2D31;
     display: flex;
     flex-direction: column;
     overflow: hidden;

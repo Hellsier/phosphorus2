@@ -11,9 +11,19 @@ const authMessage = document.getElementById("authMessage");
 const input = document.getElementById("messageInput");
 const button = document.getElementById("sendButton");
 const messages = document.getElementById("messages");
+const chatHeader = document.getElementById("chatHeader");
+const contactsList = document.getElementById("contactsList");
+const publicChatItem = document.getElementById("publicChatItem");
+const newContactLogin = document.getElementById("newContactLogin");
+const addContactBtn = document.getElementById("addContactBtn");
+const addContactMessage = document.getElementById("addContactMessage");
 
 let mode = "register";
 let ws = null;
+let currentUser = null;
+
+// Текущий открытый чат: { type: 'public' } или { type: 'private', login, nickname }
+let currentChat = { type: "public" };
 
 chatContainer.style.display = "none";
 
@@ -107,19 +117,22 @@ async function handleAuth() {
 }
 
 function enterChat(user) {
+    currentUser = user;
     authScreen.style.display = "none";
     chatContainer.style.display = "flex";
-    connectWebSocket(user);
+    connectWebSocket();
+    loadConversations();
 }
 
-function connectWebSocket(user) {
+function connectWebSocket() {
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
     ws = new WebSocket(`${protocol}://${location.host}`);
     let connected = false;
 
     ws.onopen = () => {
         connected = true;
-        addSystemMessage(`✅ Подключено как ${user.nickname}`);
+        ws.send(JSON.stringify({ type: "auth", login: currentUser.login }));
+        addSystemMessage(`✅ Подключено как ${currentUser.nickname}`);
     };
 
     ws.onclose = () => {
@@ -130,22 +143,50 @@ function connectWebSocket(user) {
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
-        if (data.type === 'history') {
+        if (data.type === "history" && currentChat.type === "public") {
             messages.innerHTML = "";
             data.messages.forEach((msg) => {
-                addMessage(msg.nickname, msg.text, msg.nickname === user.nickname);
+                addMessage(msg.nickname, msg.text, msg.nickname === currentUser.nickname);
             });
         }
 
-        if (data.type === 'message') {
-            addMessage(data.nickname, data.text, data.nickname === user.nickname);
+        if (data.type === "public_message" && currentChat.type === "public") {
+            addMessage(data.nickname, data.text, data.nickname === currentUser.nickname);
+        }
+
+        if (data.type === "private_message") {
+            const otherLogin = data.from === currentUser.login ? data.to : data.from;
+
+            // Если это переписка, которую сейчас видим на экране — дорисовываем сразу
+            if (currentChat.type === "private" && currentChat.login === otherLogin) {
+                addMessage(null, data.text, data.from === currentUser.login);
+            }
+
+            // Если такого контакта ещё нет в списке слева — добавляем
+            if (!document.querySelector(`.contactItem[data-login="${otherLogin}"]`)) {
+                loadConversations();
+            }
         }
     };
 
     const sendMessage = () => {
         const text = input.value.trim();
         if (text === "" || !connected) return;
-        ws.send(JSON.stringify({ nickname: user.nickname, text }));
+
+        if (currentChat.type === "public") {
+            ws.send(JSON.stringify({
+                type: "public_message",
+                nickname: currentUser.nickname,
+                text
+            }));
+        } else {
+            ws.send(JSON.stringify({
+                type: "private_message",
+                to: currentChat.login,
+                text
+            }));
+        }
+
         input.value = "";
         input.focus();
     };
@@ -164,7 +205,7 @@ function addMessage(nickname, text, isMine) {
     msg.className = "message";
     msg.classList.add(isMine ? "mine" : "other");
 
-    if (!isMine) {
+    if (!isMine && nickname) {
         const nameEl = document.createElement("div");
         nameEl.className = "message-nickname";
         nameEl.textContent = nickname;
@@ -184,6 +225,123 @@ function addSystemMessage(text) {
     msg.style.cssText = "color:#888; text-align:center; margin:10px 0; font-size:14px;";
     msg.textContent = text;
     messages.appendChild(msg);
+}
+
+// ---- Переключение между чатами ----
+
+function setActiveContactItem(el) {
+    document.querySelectorAll(".contactItem").forEach((item) => item.classList.remove("active"));
+    el.classList.add("active");
+}
+
+async function openPublicChat() {
+    currentChat = { type: "public" };
+    chatHeader.textContent = "Phosphorus — Общий чат";
+    setActiveContactItem(publicChatItem);
+    messages.innerHTML = "";
+    addSystemMessage("Загрузка истории...");
+
+    // История общего чата придёт через WS при следующем auth,
+    // но раз соединение уже открыто — просто попросим сервер снова
+    if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: "auth", login: currentUser.login }));
+    }
+}
+
+async function openPrivateChat(login, nickname, el) {
+    currentChat = { type: "private", login, nickname };
+    chatHeader.textContent = `Phosphorus — ${nickname}`;
+    setActiveContactItem(el);
+    messages.innerHTML = "";
+    addSystemMessage("Загрузка переписки...");
+
+    try {
+        const response = await fetch(
+            `/messages/private?me=${encodeURIComponent(currentUser.login)}&with=${encodeURIComponent(login)}`
+        );
+        const data = await response.json();
+
+        messages.innerHTML = "";
+
+        if (data.success) {
+            data.messages.forEach((msg) => {
+                addMessage(null, msg.text, msg.sender_login === currentUser.login);
+            });
+        }
+    } catch (err) {
+        messages.innerHTML = "";
+        addSystemMessage("Не удалось загрузить переписку.");
+    }
+}
+
+publicChatItem.addEventListener("click", openPublicChat);
+
+function renderContactItem(login, nickname) {
+    const el = document.createElement("div");
+    el.className = "contactItem";
+    el.dataset.login = login;
+    el.textContent = `👤 ${nickname}`;
+    el.addEventListener("click", () => openPrivateChat(login, nickname, el));
+    contactsList.appendChild(el);
+    return el;
+}
+
+async function loadConversations() {
+    try {
+        const response = await fetch(`/conversations?login=${encodeURIComponent(currentUser.login)}`);
+        const data = await response.json();
+
+        if (!data.success) return;
+
+        // очищаем всё, кроме "Общий чат"
+        Array.from(contactsList.children).forEach((child) => {
+            if (child !== publicChatItem) child.remove();
+        });
+
+        data.conversations.forEach((user) => {
+            renderContactItem(user.login, user.nickname);
+        });
+    } catch (err) {
+        console.error("Не удалось загрузить список чатов:", err.message);
+    }
+}
+
+addContactBtn.addEventListener("click", addContactByLogin);
+newContactLogin.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        addContactByLogin();
+    }
+});
+
+async function addContactByLogin() {
+    const login = newContactLogin.value.trim();
+    addContactMessage.textContent = "";
+
+    if (!login) return;
+
+    if (login === currentUser.login) {
+        addContactMessage.textContent = "Это ваш собственный логин.";
+        return;
+    }
+
+    try {
+        const response = await fetch(`/users/${encodeURIComponent(login)}`);
+        const data = await response.json();
+
+        if (!data.success) {
+            addContactMessage.textContent = "Пользователь не найден.";
+            return;
+        }
+
+        const existing = document.querySelector(`.contactItem[data-login="${login}"]`);
+        const el = existing || renderContactItem(data.user.login, data.user.nickname);
+
+        openPrivateChat(data.user.login, data.user.nickname, el);
+        newContactLogin.value = "";
+    } catch (err) {
+        addContactMessage.textContent = "Ошибка связи с сервером.";
+    }
 }
 
 const savedUser = localStorage.getItem("chatUser");

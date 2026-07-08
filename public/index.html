@@ -57,10 +57,28 @@
 
     <div id="chatContainer">
 
+        <div class="sidebar">
+
+            <div class="sidebarHeader">Чаты</div>
+
+            <div id="contactsList">
+                <div class="contactItem active" data-type="public" id="publicChatItem">
+                    💬 Общий чат
+                </div>
+            </div>
+
+            <div class="addContact">
+                <input id="newContactLogin" type="text" placeholder="Логин пользователя">
+                <button id="addContactBtn">+</button>
+            </div>
+            <p id="addContactMessage"></p>
+
+        </div>
+
         <div class="chat">
 
-            <div class="header">
-                Phosphorus
+            <div class="header" id="chatHeader">
+                Phosphorus — Общий чат
             </div>
 
             <div id="messages">
