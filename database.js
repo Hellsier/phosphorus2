@@ -1,18 +1,23 @@
 const { createClient } = require("@libsql/client");
 require("dotenv").config();
 
-if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
-    console.error(
-        "Не заданы TURSO_DATABASE_URL / TURSO_AUTH_TOKEN. " +
-        "Создай .env файл (см. .env.example) и заполни его данными из Turso."
-    );
-    process.exit(1);
-}
+const hasTurso = process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN;
 
-const db = createClient({
-    url: process.env.TURSO_DATABASE_URL,
-    authToken: process.env.TURSO_AUTH_TOKEN,
-});
+// Если переменные Turso не заданы — работаем с локальным файлом local.db.
+// Это тот же движок (libSQL), поэтому весь остальной код не меняется.
+const db = hasTurso
+    ? createClient({
+          url: process.env.TURSO_DATABASE_URL,
+          authToken: process.env.TURSO_AUTH_TOKEN,
+      })
+    : createClient({ url: "file:local.db" });
+
+if (!hasTurso) {
+    console.log(
+        "⚠️  TURSO_DATABASE_URL/TURSO_AUTH_TOKEN не заданы — " +
+        "работаю в тестовом режиме с локальным файлом local.db (данные никуда не уходят в сеть)."
+    );
+}
 
 async function initDB() {
     await db.execute(`
@@ -33,7 +38,19 @@ async function initDB() {
         )
     `);
 
-    console.log("База данных Turso подключена и готова.");
+    // Личные сообщения: маршрутизация по логину (он уникален),
+    // никнейм для отображения подтягивается отдельно из users.
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS private_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_login TEXT NOT NULL,
+            recipient_login TEXT NOT NULL,
+            text TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    console.log(hasTurso ? "База данных Turso подключена и готова." : "Локальная тестовая база готова.");
 }
 
 module.exports = { db, initDB };
