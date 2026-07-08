@@ -39,6 +39,22 @@ function sendToLogin(login, payload) {
     });
 }
 
+// Помечает сообщения от sender к reader прочитанными и, если что-то реально
+// изменилось, сообщает отправителю через WS, что можно показать двойную галочку.
+async function markPrivateMessagesRead(reader, sender) {
+    try {
+        const result = await db.execute(
+            `UPDATE private_messages SET is_read = 1 WHERE sender_login = ? AND recipient_login = ? AND is_read = 0`,
+            [sender, reader]
+        );
+        if ((result.rowsAffected || 0) > 0) {
+            sendToLogin(sender, JSON.stringify({ type: "read_receipt", by: reader }));
+        }
+    } catch (err) {
+        console.error("Ошибка обновления статуса прочтения:", err.message);
+    }
+}
+
 wss.on("connection", (ws) => {
     console.log("Новое подключение");
     ws.userLogin = null;
@@ -107,12 +123,14 @@ wss.on("connection", (ws) => {
             if (!to || !text) return;
 
             const createdAt = new Date().toISOString();
+            let messageId = null;
 
             try {
-                await db.execute(
-                    `INSERT INTO private_messages (sender_login, recipient_login, text, created_at) VALUES (?, ?, ?, ?)`,
+                const insertResult = await db.execute(
+                    `INSERT INTO private_messages (sender_login, recipient_login, text, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
                     [ws.userLogin, to, text, createdAt]
                 );
+                messageId = insertResult.rows?.[0]?.id ?? null;
             } catch (err) {
                 console.error("Ошибка сохранения личного сообщения:", err.message);
                 return;
@@ -120,14 +138,27 @@ wss.on("connection", (ws) => {
 
             const outgoing = JSON.stringify({
                 type: "private_message",
+                id: messageId,
                 from: ws.userLogin,
                 to,
                 text,
                 created_at: createdAt,
+                is_read: false,
             });
 
             sendToLogin(to, outgoing);
             sendToLogin(ws.userLogin, outgoing); // эхо себе (в т.ч. на другие вкладки)
+            return;
+        }
+
+        // Собеседник открыл переписку (или увидел новое сообщение) — помечаем прочитанным
+        if (payload.type === "mark_read") {
+            if (!ws.userLogin) return;
+
+            const otherLogin = (payload.with || "").toString();
+            if (!otherLogin) return;
+
+            await markPrivateMessagesRead(ws.userLogin, otherLogin);
             return;
         }
     });
@@ -270,7 +301,7 @@ app.get("/messages/private", async (req, res) => {
 
     try {
         const result = await db.execute(
-            `SELECT sender_login, recipient_login, text, created_at
+            `SELECT id, sender_login, recipient_login, text, created_at, is_read
              FROM private_messages
              WHERE (sender_login = ? AND recipient_login = ?)
                 OR (sender_login = ? AND recipient_login = ?)
