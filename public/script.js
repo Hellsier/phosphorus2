@@ -1,4 +1,4 @@
-сonst authScreen = document.getElementById("authScreen");
+const authScreen = document.getElementById("authScreen");
 const chatContainer = document.getElementById("chatContainer");
 const authTitle = document.getElementById("authTitle");
 const loginInput = document.getElementById("loginInput");
@@ -524,3 +524,4 @@ const savedUser = localStorage.getItem("chatUser");
 if (savedUser) {
     enterChat(JSON.parse(savedUser));
 }
+
