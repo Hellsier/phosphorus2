@@ -236,7 +236,11 @@ function connectWebSocket() {
 
             // Если это переписка, которую сейчас видим на экране — дорисовываем сразу
             if (viewingThisChat) {
-                addMessage(null, data.text, data.from === currentUser.login, data.created_at);
+                addMessage(null, data.text, data.from === currentUser.login, data.created_at, {
+                    isPrivate: true,
+                    isRead: !!data.is_read,
+                    messageId: data.id,
+                });
             }
 
             // Если такого контакта ещё нет в списке слева — сначала добавляем его
@@ -245,9 +249,15 @@ function connectWebSocket() {
                 ? Promise.resolve()
                 : loadConversations();
 
-            // Уведомляем только о чужих сообщениях, и только если человек прямо сейчас
-            // не смотрит именно в эту открытую и активную вкладку с этим диалогом
             if (isIncoming) {
+                // Диалог открыт на экране прямо сейчас — сразу сообщаем отправителю,
+                // что сообщение увидено (двойная галочка)
+                if (viewingThisChat && ws && ws.readyState === 1) {
+                    ws.send(JSON.stringify({ type: "mark_read", with: otherLogin }));
+                }
+
+                // Уведомляем только о чужих сообщениях, и только если человек прямо сейчас
+                // не смотрит именно в эту открытую и активную вкладку с этим диалогом
                 const activelyWatching = viewingThisChat && document.hasFocus();
                 if (!activelyWatching) {
                     playNotificationSound();
@@ -255,6 +265,17 @@ function connectWebSocket() {
                     showDesktopNotification(senderNickname, data.text);
                     Promise.resolve(contactListReady).then(() => markContactUnread(otherLogin));
                 }
+            }
+        }
+
+        // Собеседник прочитал наши сообщения — проставляем двойные галочки
+        if (data.type === "read_receipt") {
+            if (currentChat.type === "private" && currentChat.login === data.by) {
+                document.querySelectorAll("#messages .message.mine .message-status").forEach((el) => {
+                    el.classList.add("read");
+                    el.textContent = "✓✓";
+                    el.title = "Прочитано";
+                });
             }
         }
     };
@@ -307,7 +328,9 @@ function formatMessageTime(rawTimestamp) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function addMessage(nickname, text, isMine, timestamp) {
+// meta (необязательный объект) используется только для личных сообщений:
+// { isPrivate: true, isRead: bool, messageId: number }
+function addMessage(nickname, text, isMine, timestamp, meta = {}) {
     const msg = document.createElement("div");
     msg.className = "message";
     msg.classList.add(isMine ? "mine" : "other");
@@ -319,17 +342,40 @@ function addMessage(nickname, text, isMine, timestamp) {
         msg.appendChild(nameEl);
     }
 
+    // Текст и "время + статус" лежат в одном блоке: метка времени всплывает
+    // вправо-вниз (float) и подстраивается под последнюю строку текста,
+    // а не уезжает отдельной строкой под сообщением.
     const textEl = document.createElement("div");
-    textEl.textContent = text;
-    msg.appendChild(textEl);
+    textEl.className = "message-text";
+    textEl.appendChild(document.createTextNode(text));
+
+    const metaEl = document.createElement("span");
+    metaEl.className = "message-meta";
 
     const timeText = formatMessageTime(timestamp);
     if (timeText) {
-        const timeEl = document.createElement("div");
+        const timeEl = document.createElement("span");
         timeEl.className = "message-time";
         timeEl.textContent = timeText;
-        msg.appendChild(timeEl);
+        metaEl.appendChild(timeEl);
     }
+
+    if (isMine && meta.isPrivate) {
+        const statusEl = document.createElement("span");
+        statusEl.className = "message-status" + (meta.isRead ? " read" : "");
+        statusEl.textContent = meta.isRead ? "✓✓" : "✓";
+        statusEl.title = meta.isRead ? "Прочитано" : "Отправлено";
+        if (meta.messageId != null) {
+            statusEl.dataset.messageId = String(meta.messageId);
+        }
+        metaEl.appendChild(statusEl);
+    }
+
+    if (metaEl.childNodes.length > 0) {
+        textEl.appendChild(metaEl);
+    }
+
+    msg.appendChild(textEl);
 
     messages.appendChild(msg);
     messages.scrollTop = messages.scrollHeight;
@@ -381,8 +427,17 @@ async function openPrivateChat(login, nickname, el) {
 
         if (data.success) {
             data.messages.forEach((msg) => {
-                addMessage(null, msg.text, msg.sender_login === currentUser.login, msg.created_at);
+                addMessage(null, msg.text, msg.sender_login === currentUser.login, msg.created_at, {
+                    isPrivate: true,
+                    isRead: !!msg.is_read,
+                    messageId: msg.id,
+                });
             });
+
+            // Открыли переписку — значит, все сообщения собеседника теперь прочитаны
+            if (ws && ws.readyState === 1) {
+                ws.send(JSON.stringify({ type: "mark_read", with: login }));
+            }
         }
     } catch (err) {
         messages.innerHTML = "";
