@@ -58,6 +58,13 @@ body {
     margin-right: auto;
 }
 
+.message-nickname {
+    font-size: 12px;
+    font-weight: bold;
+    color: #b9bbbe;
+    margin-bottom: 4px;
+}
+
 .bottom {
     display: flex;
     padding: 15px;

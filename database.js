@@ -1,15 +1,21 @@
-const sqlite3 = require("sqlite3").verbose();
+const { createClient } = require("@libsql/client");
+require("dotenv").config();
 
-const db = new sqlite3.Database("./database.db", (err) => {
-    if (err) {
-        console.error("Ошибка подключения к базе:", err.message);
-    } else {
-        console.log("База данных подключена.");
-    }
+if (!process.env.TURSO_DATABASE_URL || !process.env.TURSO_AUTH_TOKEN) {
+    console.error(
+        "Не заданы TURSO_DATABASE_URL / TURSO_AUTH_TOKEN. " +
+        "Создай .env файл (см. .env.example) и заполни его данными из Turso."
+    );
+    process.exit(1);
+}
+
+const db = createClient({
+    url: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-db.serialize(() => {
-    db.run(`
+async function initDB() {
+    await db.execute(`
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             login TEXT UNIQUE NOT NULL,
@@ -17,6 +23,17 @@ db.serialize(() => {
             nickname TEXT NOT NULL
         )
     `);
-});
 
-module.exports = db;
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nickname TEXT NOT NULL,
+            text TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    console.log("База данных Turso подключена и готова.");
+}
+
+module.exports = { db, initDB };
