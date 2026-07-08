@@ -236,7 +236,7 @@ function setActiveContactItem(el) {
 
 async function openPublicChat() {
     currentChat = { type: "public" };
-    chatHeader.textContent = "Phosphorus — Общий чат";
+    chatHeader.textContent = "AntiRKNet — Общий чат";
     setActiveContactItem(publicChatItem);
     messages.innerHTML = "";
     addSystemMessage("Загрузка истории...");
@@ -250,7 +250,7 @@ async function openPublicChat() {
 
 async function openPrivateChat(login, nickname, el) {
     currentChat = { type: "private", login, nickname };
-    chatHeader.textContent = `Phosphorus — ${nickname}`;
+    chatHeader.textContent = `AntiRKNet — ${nickname}`;
     setActiveContactItem(el);
     messages.innerHTML = "";
     addSystemMessage("Загрузка переписки...");
