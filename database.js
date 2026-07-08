@@ -46,9 +46,18 @@ async function initDB() {
             sender_login TEXT NOT NULL,
             recipient_login TEXT NOT NULL,
             text TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_read INTEGER NOT NULL DEFAULT 0
         )
     `);
+
+    // Миграция для баз, созданных до появления статуса прочтения:
+    // если столбца ещё нет — добавляем, если уже есть — просто игнорируем ошибку.
+    try {
+        await db.execute(`ALTER TABLE private_messages ADD COLUMN is_read INTEGER NOT NULL DEFAULT 0`);
+    } catch (err) {
+        // столбец уже существует — это нормально
+    }
 
     console.log(hasTurso ? "База данных Turso подключена и готова." : "Локальная тестовая база готова.");
 }
