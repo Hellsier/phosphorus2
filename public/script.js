@@ -1,4 +1,4 @@
-const authScreen = document.getElementById("authScreen");
+onst authScreen = document.getElementById("authScreen");
 const chatContainer = document.getElementById("chatContainer");
 const authTitle = document.getElementById("authTitle");
 const loginInput = document.getElementById("loginInput");
@@ -342,12 +342,15 @@ function addMessage(nickname, text, isMine, timestamp, meta = {}) {
         msg.appendChild(nameEl);
     }
 
-    // Текст и "время + статус" лежат в одном блоке: метка времени всплывает
-    // вправо-вниз (float) и подстраивается под последнюю строку текста,
-    // а не уезжает отдельной строкой под сообщением.
-    const textEl = document.createElement("div");
+    // Текст и блок "время + статус" — соседние элементы в одной строке (flex):
+    // текст прижат влево, время с галочками — вправо, на одном уровне с текстом.
+    const rowEl = document.createElement("div");
+    rowEl.className = "message-row";
+
+    const textEl = document.createElement("span");
     textEl.className = "message-text";
     textEl.appendChild(document.createTextNode(text));
+    rowEl.appendChild(textEl);
 
     const metaEl = document.createElement("span");
     metaEl.className = "message-meta";
@@ -372,10 +375,10 @@ function addMessage(nickname, text, isMine, timestamp, meta = {}) {
     }
 
     if (metaEl.childNodes.length > 0) {
-        textEl.appendChild(metaEl);
+        rowEl.appendChild(metaEl);
     }
 
-    msg.appendChild(textEl);
+    msg.appendChild(rowEl);
 
     messages.appendChild(msg);
     messages.scrollTop = messages.scrollHeight;
