@@ -159,14 +159,49 @@ body {
     margin-bottom: 4px;
 }
 
+/* Текст сообщения и блок "время + статус" — соседи в одной строке (flex):
+   текст прижат к левому краю пузыря, время и галочки — к правому. */
+.message-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.message-text {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+.message-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding-bottom: 1px;
+}
+
 .message-time {
     font-size: 10px;
-    color: rgba(255, 255, 255, 0.6);
-    text-align: right;
+    color: rgba(255, 255, 255, 0.65);
 }
 
 .message.other .message-time {
     color: #b9bbbe;
+}
+
+/* Статус личного сообщения: одна галочка — отправлено, две синие — прочитано */
+.message-status {
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message-status.read {
+    color: #4fc3f7;
 }
 
 .bottom {
