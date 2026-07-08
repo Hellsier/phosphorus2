@@ -22,6 +22,9 @@ let mode = "register";
 let ws = null;
 let currentUser = null;
 
+// login -> nickname, чтобы уведомления могли показать имя человека, а не логин
+const knownNicknames = {};
+
 // Текущий открытый чат: { type: 'public' } или { type: 'private', login, nickname }
 let currentChat = { type: "public" };
 
@@ -122,6 +125,78 @@ function enterChat(user) {
     chatContainer.style.display = "flex";
     connectWebSocket();
     loadConversations();
+    requestNotificationPermission();
+}
+
+// ---- Звуковые и браузерные уведомления о новых личных сообщениях ----
+
+let audioCtx = null;
+
+function playNotificationSound() {
+    try {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === "suspended") {
+            audioCtx.resume();
+        }
+
+        const now = audioCtx.currentTime;
+        const gain = audioCtx.createGain();
+        gain.connect(audioCtx.destination);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.18, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        // Два коротких тона — привычный "дзинь" мессенджера, без внешних аудиофайлов
+        const osc1 = audioCtx.createOscillator();
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(880, now);
+        osc1.connect(gain);
+        osc1.start(now);
+        osc1.stop(now + 0.15);
+
+        const osc2 = audioCtx.createOscillator();
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(1175, now + 0.12);
+        osc2.connect(gain);
+        osc2.start(now + 0.12);
+        osc2.stop(now + 0.4);
+    } catch (err) {
+        console.error("Не удалось воспроизвести звук уведомления:", err.message);
+    }
+}
+
+function requestNotificationPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+}
+
+function showDesktopNotification(title, body) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    // Не показываем всплывающее уведомление, если вкладка и так открыта и активна
+    if (document.visibilityState === "visible" && document.hasFocus()) return;
+
+    try {
+        const notif = new Notification(title, { body });
+        notif.onclick = () => {
+            window.focus();
+            notif.close();
+        };
+    } catch (err) {
+        console.error("Не удалось показать уведомление:", err.message);
+    }
+}
+
+function markContactUnread(login) {
+    const el = document.querySelector(`.contactItem[data-login="${login}"]`);
+    if (el) el.classList.add("unread");
+}
+
+function clearContactUnread(login) {
+    const el = document.querySelector(`.contactItem[data-login="${login}"]`);
+    if (el) el.classList.remove("unread");
 }
 
 function connectWebSocket() {
@@ -156,15 +231,30 @@ function connectWebSocket() {
 
         if (data.type === "private_message") {
             const otherLogin = data.from === currentUser.login ? data.to : data.from;
+            const isIncoming = data.from !== currentUser.login;
+            const viewingThisChat = currentChat.type === "private" && currentChat.login === otherLogin;
 
             // Если это переписка, которую сейчас видим на экране — дорисовываем сразу
-            if (currentChat.type === "private" && currentChat.login === otherLogin) {
+            if (viewingThisChat) {
                 addMessage(null, data.text, data.from === currentUser.login, data.created_at);
             }
 
-            // Если такого контакта ещё нет в списке слева — добавляем
-            if (!document.querySelector(`.contactItem[data-login="${otherLogin}"]`)) {
-                loadConversations();
+            // Если такого контакта ещё нет в списке слева — сначала добавляем его
+            const contactExists = !!document.querySelector(`.contactItem[data-login="${otherLogin}"]`);
+            const contactListReady = contactExists
+                ? Promise.resolve()
+                : loadConversations();
+
+            // Уведомляем только о чужих сообщениях, и только если человек прямо сейчас
+            // не смотрит именно в эту открытую и активную вкладку с этим диалогом
+            if (isIncoming) {
+                const activelyWatching = viewingThisChat && document.hasFocus();
+                if (!activelyWatching) {
+                    playNotificationSound();
+                    const senderNickname = knownNicknames[data.from] || otherLogin;
+                    showDesktopNotification(senderNickname, data.text);
+                    Promise.resolve(contactListReady).then(() => markContactUnread(otherLogin));
+                }
             }
         }
     };
@@ -277,6 +367,7 @@ async function openPrivateChat(login, nickname, el) {
     currentChat = { type: "private", login, nickname };
     chatHeader.textContent = `AntiRKNet — ${nickname}`;
     setActiveContactItem(el);
+    clearContactUnread(login);
     messages.innerHTML = "";
     addSystemMessage("Загрузка переписки...");
 
@@ -302,6 +393,8 @@ async function openPrivateChat(login, nickname, el) {
 publicChatItem.addEventListener("click", openPublicChat);
 
 function renderContactItem(login, nickname) {
+    knownNicknames[login] = nickname;
+
     const el = document.createElement("div");
     el.className = "contactItem";
     el.dataset.login = login;
