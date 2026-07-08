@@ -1,4 +1,4 @@
-onst authScreen = document.getElementById("authScreen");
+сonst authScreen = document.getElementById("authScreen");
 const chatContainer = document.getElementById("chatContainer");
 const authTitle = document.getElementById("authTitle");
 const loginInput = document.getElementById("loginInput");
