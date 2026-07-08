@@ -62,6 +62,23 @@ body {
     color: white;
 }
 
+.contactItem.unread {
+    position: relative;
+    color: white;
+    font-weight: bold;
+}
+
+.contactItem.unread::after {
+    content: "";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f23f42;
+}
+
 .addContact {
     display: flex;
     gap: 6px;
