@@ -9,13 +9,107 @@ body {
     font-family: Arial, sans-serif;
 }
 
-.chat {
-    width: 500px;
-    max-width: 95vw;
+#chatContainer {
+    display: flex;
     height: 700px;
     max-height: 90vh;
-    background: #2B2D31;
+    width: 780px;
+    max-width: 95vw;
     border-radius: 15px;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 230px;
+    min-width: 230px;
+    background: #232428;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #1E1F22;
+}
+
+.sidebarHeader {
+    padding: 18px 16px;
+    color: white;
+    font-weight: bold;
+    font-size: 16px;
+    background: #1E1F22;
+}
+
+#contactsList {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px;
+}
+
+.contactItem {
+    padding: 12px 14px;
+    border-radius: 8px;
+    color: #b9bbbe;
+    cursor: pointer;
+    margin-bottom: 4px;
+    font-size: 14px;
+    transition: background 0.15s;
+    word-break: break-word;
+}
+
+.contactItem:hover {
+    background: #2f3136;
+}
+
+.contactItem.active {
+    background: #5865F2;
+    color: white;
+}
+
+.contactItem.unread {
+    position: relative;
+    color: white;
+    font-weight: bold;
+}
+
+.contactItem.unread::after {
+    content: "";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f23f42;
+}
+
+.addContact {
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    border-top: 1px solid #1E1F22;
+}
+
+.addContact input {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+.addContact button {
+    width: 36px;
+    border-radius: 8px;
+    font-size: 18px;
+}
+
+#addContactMessage {
+    font-size: 12px;
+    text-align: center;
+    color: #ff8c8c;
+    min-height: 16px;
+    padding: 0 10px 8px;
+}
+
+.chat {
+    flex: 1;
+    background: #2B2D31;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -63,6 +157,51 @@ body {
     font-weight: bold;
     color: #b9bbbe;
     margin-bottom: 4px;
+}
+
+/* Текст сообщения и блок "время + статус" — соседи в одной строке (flex):
+   текст прижат к левому краю пузыря, время и галочки — к правому. */
+.message-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.message-text {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+.message-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding-bottom: 1px;
+}
+
+.message-time {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message.other .message-time {
+    color: #b9bbbe;
+}
+
+/* Статус личного сообщения: одна галочка — отправлено, две синие — прочитано */
+.message-status {
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message-status.read {
+    color: #4fc3f7;
 }
 
 .bottom {

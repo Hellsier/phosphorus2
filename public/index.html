@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Phosphorus Chat</title>
+    <title>AntiRKNet Chat</title>
 
     <link rel="stylesheet" href="style.css">
 </head>
@@ -15,7 +15,7 @@
         <div class="authWindow">
 
             <h1 class="bounce-text">
-                <span>P</span><span>H</span><span>O</span><span>S</span><span>P</span><span>H</span><span>O</span><span>R</span><span>U</span><span>S</span>
+                <span>A</span><span>n</span><span>t</span><span>i</span><span>R</span><span>K</span><span>N</span><span>e</span><span>t</span>
             </h1>
 
 
@@ -57,10 +57,28 @@
 
     <div id="chatContainer">
 
+        <div class="sidebar">
+
+            <div class="sidebarHeader">Чаты</div>
+
+            <div id="contactsList">
+                <div class="contactItem active" data-type="public" id="publicChatItem">
+                    💬 Общий чат
+                </div>
+            </div>
+
+            <div class="addContact">
+                <input id="newContactLogin" type="text" placeholder="Логин пользователя">
+                <button id="addContactBtn">+</button>
+            </div>
+            <p id="addContactMessage"></p>
+
+        </div>
+
         <div class="chat">
 
-            <div class="header">
-                Phosphorus
+            <div class="header" id="chatHeader">
+                AntiRKNet — Общий чат
             </div>
 
             <div id="messages">
