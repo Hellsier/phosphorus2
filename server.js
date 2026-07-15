@@ -37,23 +37,6 @@ function sendToLogin(login, payload) {
     (connections.get(login) || new Set()).forEach((client) => {
         if (client.readyState === 1) client.send(payload);
     });
-
-function addConnection(login, ws) {
-    if (!connections.has(login)) connections.set(login, new Set());
-    connections.get(login).add(ws);
-}
-
-function removeConnection(login, ws) {
-    const set = connections.get(login);
-    if (!set) return;
-    set.delete(ws);
-    if (set.size === 0) connections.delete(login);
-}
-
-function sendToLogin(login, payload) {
-    (connections.get(login) || new Set()).forEach((client) => {
-        if (client.readyState === 1) client.send(payload);
-    });
 }
 
 // Помечает сообщения от sender к reader прочитанными и, если что-то реально
@@ -110,11 +93,6 @@ wss.on("connection", (ws) => {
             const text = (payload.text || "").toString().trim().slice(0, 2000);
             if (!nickname || !text) return;
 
-            try {
-                await db.execute(
-                    `INSERT INTO messages (nickname, text) VALUES (?, ?)`,
-                    [nickname, text]
-
             // Фиксируем время отправки на сервере — так все клиенты видят
             // одно и то же время, независимо от часового пояса отправителя.
             const createdAt = new Date().toISOString();
@@ -129,7 +107,6 @@ wss.on("connection", (ws) => {
                 return;
             }
 
-            const outgoing = JSON.stringify({ type: "public_message", nickname, text });
             const outgoing = JSON.stringify({ type: "public_message", nickname, text, created_at: createdAt });
             wss.clients.forEach((client) => {
                 if (client.readyState === 1) client.send(outgoing);
@@ -145,11 +122,6 @@ wss.on("connection", (ws) => {
             const text = (payload.text || "").toString().trim().slice(0, 2000);
             if (!to || !text) return;
 
-            try {
-                await db.execute(
-                    `INSERT INTO private_messages (sender_login, recipient_login, text) VALUES (?, ?, ?)`,
-                    [ws.userLogin, to, text]
-                );
             const createdAt = new Date().toISOString();
             let messageId = null;
 
@@ -166,9 +138,6 @@ wss.on("connection", (ws) => {
 
             const outgoing = JSON.stringify({
                 type: "private_message",
-                from: ws.userLogin,
-                to,
-                text,
                 id: messageId,
                 from: ws.userLogin,
                 to,
@@ -332,7 +301,6 @@ app.get("/messages/private", async (req, res) => {
 
     try {
         const result = await db.execute(
-            `SELECT sender_login, recipient_login, text, created_at
             `SELECT id, sender_login, recipient_login, text, created_at, is_read
              FROM private_messages
              WHERE (sender_login = ? AND recipient_login = ?)
