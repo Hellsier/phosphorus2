@@ -62,6 +62,23 @@ body {
     color: white;
 }
 
+.contactItem.unread {
+    position: relative;
+    color: white;
+    font-weight: bold;
+}
+
+.contactItem.unread::after {
+    content: "";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f23f42;
+}
+
 .addContact {
     display: flex;
     gap: 6px;
@@ -140,6 +157,51 @@ body {
     font-weight: bold;
     color: #b9bbbe;
     margin-bottom: 4px;
+}
+
+/* Текст сообщения и блок "время + статус" — соседи в одной строке (flex):
+   текст прижат к левому краю пузыря, время и галочки — к правому. */
+.message-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.message-text {
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    min-width: 0;
+}
+
+.message-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding-bottom: 1px;
+}
+
+.message-time {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message.other .message-time {
+    color: #b9bbbe;
+}
+
+/* Статус личного сообщения: одна галочка — отправлено, две синие — прочитано */
+.message-status {
+    font-size: 13px;
+    line-height: 1;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.message-status.read {
+    color: #4fc3f7;
 }
 
 .bottom {
@@ -293,4 +355,87 @@ button:hover { background: #4752C4; }
 @keyframes bounce {
   0%, 100% { transform: translateY(0); }
   20% { transform: translateY(-10px); }
+}
+
+@media (max-width: 768px) {
+
+    body {
+        align-items: stretch;
+    }
+
+    #chatContainer {
+        width: 100vw;
+        max-width: none;
+        height: 100vh;
+        max-height: none;
+        border-radius: 0;
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        min-width: 0;
+        border-right: none;
+        border-bottom: 1px solid #1E1F22;
+    }
+
+    .sidebarHeader {
+        padding: 12px 16px;
+        text-align: center;
+    }
+
+    #contactsList {
+        display: flex;
+        overflow-x: auto;
+        overflow-y: hidden;
+        gap: 8px;
+        padding: 10px;
+        flex: none;
+        scrollbar-width: thin;
+    }
+
+    .contactItem {
+        margin: 0;
+        white-space: nowrap;
+        flex-shrink: 0;
+        min-width: max-content;
+    }
+
+    .addContact {
+        padding: 8px;
+    }
+
+    .addContact input {
+        font-size: 14px;
+    }
+
+    .chat {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .header {
+        font-size: 18px;
+        padding: 14px;
+    }
+
+    #messages {
+        padding: 12px;
+    }
+
+    .message {
+        max-width: 90%;
+    }
+
+    .bottom {
+        padding: 10px;
+    }
+
+    input {
+        font-size: 16px;
+    }
+
+    button {
+        width: 48px;
+    }
 }
