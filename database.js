@@ -59,6 +59,16 @@ async function initDB() {
         // столбец уже существует — это нормально
     }
 
+    // Токены устройств для push-уведомлений (мобильное приложение)
+    await db.execute(`
+        CREATE TABLE IF NOT EXISTS push_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            login TEXT NOT NULL,
+            token TEXT UNIQUE NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
     console.log(hasTurso ? "База данных Turso подключена и готова." : "Локальная тестовая база готова.");
 }
 

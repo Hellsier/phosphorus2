@@ -4,6 +4,7 @@ const http = require("http");
 const bcrypt = require("bcrypt");
 const { WebSocketServer } = require("ws");
 const { db, initDB } = require("./database");
+const admin = require("firebase-admin");
 require("dotenv").config();
 
 const app = express();
@@ -17,6 +18,50 @@ const PORT = process.env.PORT || 10000;
 app.use(express.static(path.join(__dirname, "public")));
 
 const HISTORY_LIMIT = 50;
+
+// ---- Firebase Admin (push-уведомления) ----
+// FIREBASE_SERVICE_ACCOUNT — весь JSON-файл из Firebase (Service Accounts),
+// вставленный в одну строку, целиком, как значение переменной окружения.
+let firebaseReady = false;
+
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    try {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+        firebaseReady = true;
+        console.log("Firebase Admin подключен — push-уведомления доступны.");
+    } catch (err) {
+        console.error("Не удалось инициализировать Firebase Admin:", err.message);
+    }
+} else {
+    console.log(
+        "⚠️  FIREBASE_SERVICE_ACCOUNT не задан — push-уведомления отправляться не будут " +
+        "(обычный чат и WebSocket продолжат работать как обычно)."
+    );
+}
+
+async function sendPushToLogin(login, { title, body }) {
+    if (!firebaseReady) return;
+
+    try {
+        const result = await db.execute(
+            `SELECT token FROM push_tokens WHERE login = ?`,
+            [login]
+        );
+
+        const tokens = result.rows.map((r) => r.token);
+        if (tokens.length === 0) return;
+
+        await admin.messaging().sendEachForMulticast({
+            tokens,
+            notification: { title, body },
+        });
+    } catch (err) {
+        console.error("Ошибка отправки push-уведомления:", err.message);
+    }
+}
 
 // login -> Set(ws) — один пользователь может быть онлайн в нескольких вкладках
 const connections = new Map();
@@ -148,6 +193,23 @@ wss.on("connection", (ws) => {
 
             sendToLogin(to, outgoing);
             sendToLogin(ws.userLogin, outgoing); // эхо себе (в т.ч. на другие вкладки)
+
+            // Если получатель не в сети прямо сейчас (нет активного WebSocket-соединения) —
+            // шлём push-уведомление на его устройство, если оно зарегистрировано.
+            const recipientOnline = connections.has(to) && connections.get(to).size > 0;
+            if (!recipientOnline) {
+                try {
+                    const senderResult = await db.execute(
+                        `SELECT nickname FROM users WHERE login = ?`,
+                        [ws.userLogin]
+                    );
+                    const senderNickname = senderResult.rows[0]?.nickname || ws.userLogin;
+                    await sendPushToLogin(to, { title: senderNickname, body: text });
+                } catch (err) {
+                    console.error("Не удалось отправить push:", err.message);
+                }
+            }
+
             return;
         }
 
@@ -240,6 +302,30 @@ app.post("/login", async (req, res) => {
 });
 
 // Проверить, существует ли пользователь с таким логином (для добавления в контакты)
+// Приложение (APK) присылает сюда токен устройства после регистрации в Firebase
+app.post("/register-push-token", async (req, res) => {
+    const { login, token } = req.body;
+
+    if (!login || !token) {
+        return res.json({ success: false, message: "Не хватает данных." });
+    }
+
+    try {
+        // Один и тот же токен может теоретически переприкрепиться к другому логину
+        // (переустановка приложения на другой аккаунт) — поэтому делаем "upsert"
+        await db.execute(
+            `INSERT INTO push_tokens (login, token) VALUES (?, ?)
+             ON CONFLICT(token) DO UPDATE SET login = excluded.login`,
+            [login, token]
+        );
+
+        res.json({ success: true });
+    } catch (err) {
+        console.error(err.message);
+        res.json({ success: false, message: "Ошибка базы данных." });
+    }
+});
+
 app.get("/users/:login", async (req, res) => {
     const { login } = req.params;
 
