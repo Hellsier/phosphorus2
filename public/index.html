@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AntiRKNet Chat</title>
 
     <link rel="stylesheet" href="style.css">
@@ -78,8 +78,9 @@
 
         <div class="chat">
 
-            <div class="header" id="chatHeader">
-                AntiRKNet — Общий чат
+            <div class="header">
+                <button id="backToContacts" class="backButton" aria-label="Назад к списку чатов">←</button>
+                <span id="chatHeaderText">AntiRKNet — Общий чат</span>
             </div>
 
             <div id="messages">
