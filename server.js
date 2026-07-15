@@ -37,6 +37,39 @@ function sendToLogin(login, payload) {
     (connections.get(login) || new Set()).forEach((client) => {
         if (client.readyState === 1) client.send(payload);
     });
+
+function addConnection(login, ws) {
+    if (!connections.has(login)) connections.set(login, new Set());
+    connections.get(login).add(ws);
+}
+
+function removeConnection(login, ws) {
+    const set = connections.get(login);
+    if (!set) return;
+    set.delete(ws);
+    if (set.size === 0) connections.delete(login);
+}
+
+function sendToLogin(login, payload) {
+    (connections.get(login) || new Set()).forEach((client) => {
+        if (client.readyState === 1) client.send(payload);
+    });
+}
+
+// Помечает сообщения от sender к reader прочитанными и, если что-то реально
+// изменилось, сообщает отправителю через WS, что можно показать двойную галочку.
+async function markPrivateMessagesRead(reader, sender) {
+    try {
+        const result = await db.execute(
+            `UPDATE private_messages SET is_read = 1 WHERE sender_login = ? AND recipient_login = ? AND is_read = 0`,
+            [sender, reader]
+        );
+        if ((result.rowsAffected || 0) > 0) {
+            sendToLogin(sender, JSON.stringify({ type: "read_receipt", by: reader }));
+        }
+    } catch (err) {
+        console.error("Ошибка обновления статуса прочтения:", err.message);
+    }
 }
 
 wss.on("connection", (ws) => {
@@ -81,6 +114,15 @@ wss.on("connection", (ws) => {
                 await db.execute(
                     `INSERT INTO messages (nickname, text) VALUES (?, ?)`,
                     [nickname, text]
+
+            // Фиксируем время отправки на сервере — так все клиенты видят
+            // одно и то же время, независимо от часового пояса отправителя.
+            const createdAt = new Date().toISOString();
+
+            try {
+                await db.execute(
+                    `INSERT INTO messages (nickname, text, created_at) VALUES (?, ?, ?)`,
+                    [nickname, text, createdAt]
                 );
             } catch (err) {
                 console.error("Ошибка сохранения сообщения:", err.message);
@@ -88,6 +130,7 @@ wss.on("connection", (ws) => {
             }
 
             const outgoing = JSON.stringify({ type: "public_message", nickname, text });
+            const outgoing = JSON.stringify({ type: "public_message", nickname, text, created_at: createdAt });
             wss.clients.forEach((client) => {
                 if (client.readyState === 1) client.send(outgoing);
             });
@@ -107,6 +150,15 @@ wss.on("connection", (ws) => {
                     `INSERT INTO private_messages (sender_login, recipient_login, text) VALUES (?, ?, ?)`,
                     [ws.userLogin, to, text]
                 );
+            const createdAt = new Date().toISOString();
+            let messageId = null;
+
+            try {
+                const insertResult = await db.execute(
+                    `INSERT INTO private_messages (sender_login, recipient_login, text, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
+                    [ws.userLogin, to, text, createdAt]
+                );
+                messageId = insertResult.rows?.[0]?.id ?? null;
             } catch (err) {
                 console.error("Ошибка сохранения личного сообщения:", err.message);
                 return;
@@ -117,10 +169,27 @@ wss.on("connection", (ws) => {
                 from: ws.userLogin,
                 to,
                 text,
+                id: messageId,
+                from: ws.userLogin,
+                to,
+                text,
+                created_at: createdAt,
+                is_read: false,
             });
 
             sendToLogin(to, outgoing);
             sendToLogin(ws.userLogin, outgoing); // эхо себе (в т.ч. на другие вкладки)
+            return;
+        }
+
+        // Собеседник открыл переписку (или увидел новое сообщение) — помечаем прочитанным
+        if (payload.type === "mark_read") {
+            if (!ws.userLogin) return;
+
+            const otherLogin = (payload.with || "").toString();
+            if (!otherLogin) return;
+
+            await markPrivateMessagesRead(ws.userLogin, otherLogin);
             return;
         }
     });
@@ -264,6 +333,7 @@ app.get("/messages/private", async (req, res) => {
     try {
         const result = await db.execute(
             `SELECT sender_login, recipient_login, text, created_at
+            `SELECT id, sender_login, recipient_login, text, created_at, is_read
              FROM private_messages
              WHERE (sender_login = ? AND recipient_login = ?)
                 OR (sender_login = ? AND recipient_login = ?)
