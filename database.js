@@ -46,6 +46,10 @@ async function initDB() {
             sender_login TEXT NOT NULL,
             recipient_login TEXT NOT NULL,
             text TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             is_read INTEGER NOT NULL DEFAULT 0
         )

@@ -125,6 +125,8 @@ function enterChat(user) {
     chatContainer.style.display = "flex";
     connectWebSocket();
     loadConversations();
+}
+
     requestNotificationPermission();
 }
 
@@ -221,16 +223,27 @@ function connectWebSocket() {
         if (data.type === "history" && currentChat.type === "public") {
             messages.innerHTML = "";
             data.messages.forEach((msg) => {
+                addMessage(msg.nickname, msg.text, msg.nickname === currentUser.nickname);
                 addMessage(msg.nickname, msg.text, msg.nickname === currentUser.nickname, msg.created_at);
             });
         }
 
         if (data.type === "public_message" && currentChat.type === "public") {
+            addMessage(data.nickname, data.text, data.nickname === currentUser.nickname);
             addMessage(data.nickname, data.text, data.nickname === currentUser.nickname, data.created_at);
         }
 
         if (data.type === "private_message") {
             const otherLogin = data.from === currentUser.login ? data.to : data.from;
+
+            // Если это переписка, которую сейчас видим на экране — дорисовываем сразу
+            if (currentChat.type === "private" && currentChat.login === otherLogin) {
+                addMessage(null, data.text, data.from === currentUser.login);
+            }
+
+            // Если такого контакта ещё нет в списке слева — добавляем
+            if (!document.querySelector(`.contactItem[data-login="${otherLogin}"]`)) {
+                loadConversations();
             const isIncoming = data.from !== currentUser.login;
             const viewingThisChat = currentChat.type === "private" && currentChat.login === otherLogin;
 
@@ -430,6 +443,8 @@ async function openPrivateChat(login, nickname, el) {
 
         if (data.success) {
             data.messages.forEach((msg) => {
+                addMessage(null, msg.text, msg.sender_login === currentUser.login);
+            });
                 addMessage(null, msg.text, msg.sender_login === currentUser.login, msg.created_at, {
                     isPrivate: true,
                     isRead: !!msg.is_read,
