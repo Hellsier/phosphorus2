@@ -87,12 +87,21 @@
 
             </div>
 
+            <div id="replyBar" class="replyBar" style="display:none;">
+                <div class="replyBarContent">
+                    <div class="replyBarAuthor" id="replyBarAuthor"></div>
+                    <div class="replyBarText" id="replyBarText"></div>
+                </div>
+                <button id="cancelReplyBtn" class="cancelReplyBtn" type="button">✕</button>
+            </div>
+
             <div class="bottom">
 
                 <input
                     id="messageInput"
                     type="text"
                     placeholder="Введите сообщение..."
+                    maxlength="2000"
                 >
 
             <button id="sendButton">

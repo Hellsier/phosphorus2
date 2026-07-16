@@ -19,6 +19,13 @@ const publicChatItem = document.getElementById("publicChatItem");
 const newContactLogin = document.getElementById("newContactLogin");
 const addContactBtn = document.getElementById("addContactBtn");
 const addContactMessage = document.getElementById("addContactMessage");
+const replyBar = document.getElementById("replyBar");
+const replyBarAuthor = document.getElementById("replyBarAuthor");
+const replyBarText = document.getElementById("replyBarText");
+const cancelReplyBtn = document.getElementById("cancelReplyBtn");
+
+const REACTION_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🔥"];
+let replyingTo = null; // { id, scope, authorLabel, text } или null
 
 let mode = "register";
 let ws = null;
@@ -282,12 +289,26 @@ function connectWebSocket() {
         if (data.type === "history" && currentChat.type === "public") {
             messages.innerHTML = "";
             data.messages.forEach((msg) => {
-                addMessage(msg.nickname, msg.text, msg.nickname === currentUser.nickname, msg.created_at);
+                addMessage(msg.nickname, msg.text, msg.nickname === currentUser.nickname, msg.created_at, {
+                    messageId: msg.id,
+                    scope: "public",
+                    reply: msg.reply_to_id
+                        ? { authorLabel: msg.reply_nickname, text: msg.reply_text }
+                        : null,
+                    reactions: msg.reactions || [],
+                });
             });
         }
 
         if (data.type === "public_message" && currentChat.type === "public") {
-            addMessage(data.nickname, data.text, data.nickname === currentUser.nickname, data.created_at);
+            addMessage(data.nickname, data.text, data.nickname === currentUser.nickname, data.created_at, {
+                messageId: data.id,
+                scope: "public",
+                reply: data.reply_to_id
+                    ? { authorLabel: data.reply_nickname, text: data.reply_text }
+                    : null,
+                reactions: data.reactions || [],
+            });
         }
 
         if (data.type === "private_message") {
@@ -297,10 +318,20 @@ function connectWebSocket() {
 
             // Если это переписка, которую сейчас видим на экране — дорисовываем сразу
             if (viewingThisChat) {
+                let replyAuthorLabel = null;
+                if (data.reply_to_id) {
+                    replyAuthorLabel = data.reply_sender_login === currentUser.login
+                        ? currentUser.nickname
+                        : currentChat.nickname;
+                }
+
                 addMessage(null, data.text, data.from === currentUser.login, data.created_at, {
                     isPrivate: true,
                     isRead: !!data.is_read,
                     messageId: data.id,
+                    scope: "private",
+                    reply: data.reply_to_id ? { authorLabel: replyAuthorLabel, text: data.reply_text } : null,
+                    reactions: data.reactions || [],
                 });
             }
 
@@ -339,28 +370,38 @@ function connectWebSocket() {
                 });
             }
         }
+
+        // Кто-то поставил/снял реакцию — обновляем ряд реакций у нужного сообщения
+        if (data.type === "reaction_update") {
+            updateReactionsOnMessage(data.scope, data.message_id, data.reactions);
+        }
     };
 
     const sendMessage = () => {
         const text = input.value.trim();
         if (text === "" || !connected) return;
 
+        const replyToId = replyingTo ? replyingTo.id : undefined;
+
         if (currentChat.type === "public") {
             ws.send(JSON.stringify({
                 type: "public_message",
                 nickname: currentUser.nickname,
-                text
+                text,
+                reply_to_id: replyToId
             }));
         } else {
             ws.send(JSON.stringify({
                 type: "private_message",
                 to: currentChat.login,
-                text
+                text,
+                reply_to_id: replyToId
             }));
         }
 
         input.value = "";
         input.focus();
+        cancelReply();
     };
 
     button.onclick = sendMessage;
@@ -389,18 +430,39 @@ function formatMessageTime(rawTimestamp) {
     return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-// meta (необязательный объект) используется только для личных сообщений:
-// { isPrivate: true, isRead: bool, messageId: number }
+// meta (необязательный объект):
+// { isPrivate, isRead, messageId, scope: 'public'|'private', reply: {authorLabel, text}|null, reactions: [] }
 function addMessage(nickname, text, isMine, timestamp, meta = {}) {
     const msg = document.createElement("div");
     msg.className = "message";
     msg.classList.add(isMine ? "mine" : "other");
+
+    if (meta.messageId != null) msg.dataset.messageId = String(meta.messageId);
+    if (meta.scope) msg.dataset.scope = meta.scope;
 
     if (!isMine && nickname) {
         const nameEl = document.createElement("div");
         nameEl.className = "message-nickname";
         nameEl.textContent = nickname;
         msg.appendChild(nameEl);
+    }
+
+    // Превью сообщения, на которое отвечают (как реплай в Telegram)
+    if (meta.reply) {
+        const replyEl = document.createElement("div");
+        replyEl.className = "reply-preview";
+
+        const replyAuthorEl = document.createElement("div");
+        replyAuthorEl.className = "reply-preview-author";
+        replyAuthorEl.textContent = meta.reply.authorLabel || "…";
+
+        const replyTextEl = document.createElement("div");
+        replyTextEl.className = "reply-preview-text";
+        replyTextEl.textContent = meta.reply.text || "";
+
+        replyEl.appendChild(replyAuthorEl);
+        replyEl.appendChild(replyTextEl);
+        msg.appendChild(replyEl);
     }
 
     // Текст и блок "время + статус" — соседние элементы в одной строке (flex):
@@ -429,9 +491,6 @@ function addMessage(nickname, text, isMine, timestamp, meta = {}) {
         statusEl.className = "message-status" + (meta.isRead ? " read" : "");
         statusEl.textContent = meta.isRead ? "✓✓" : "✓";
         statusEl.title = meta.isRead ? "Прочитано" : "Отправлено";
-        if (meta.messageId != null) {
-            statusEl.dataset.messageId = String(meta.messageId);
-        }
         metaEl.appendChild(statusEl);
     }
 
@@ -441,9 +500,145 @@ function addMessage(nickname, text, isMine, timestamp, meta = {}) {
 
     msg.appendChild(rowEl);
 
+    // Кнопки "Ответить" и "Реакция" — доступны только у сообщений, у которых
+    // есть id и известен scope (общий/личный чат), т.е. не у системных сообщений.
+    if (meta.messageId != null && meta.scope) {
+        const actionsEl = document.createElement("div");
+        actionsEl.className = "message-actions";
+
+        const authorForReply = isMine
+            ? currentUser.nickname
+            : (nickname || (currentChat.type === "private" ? currentChat.nickname : ""));
+
+        const replyBtn = document.createElement("button");
+        replyBtn.type = "button";
+        replyBtn.className = "message-action-btn";
+        replyBtn.textContent = "↩";
+        replyBtn.title = "Ответить";
+        replyBtn.addEventListener("click", () => {
+            startReply(meta.messageId, meta.scope, authorForReply, text);
+        });
+        actionsEl.appendChild(replyBtn);
+
+        const reactBtn = document.createElement("button");
+        reactBtn.type = "button";
+        reactBtn.className = "message-action-btn";
+        reactBtn.textContent = "😀";
+        reactBtn.title = "Реакция";
+        reactBtn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            toggleReactionPicker(reactBtn, meta.messageId, meta.scope);
+        });
+        actionsEl.appendChild(reactBtn);
+
+        msg.appendChild(actionsEl);
+    }
+
+    // Реакции под сообщением (может быть пустым списком — просто ничего не отрисуется)
+    const reactionsRowEl = document.createElement("div");
+    reactionsRowEl.className = "reactions-row";
+    renderReactionsInto(reactionsRowEl, meta.reactions || [], meta.messageId, meta.scope);
+    msg.appendChild(reactionsRowEl);
+
     messages.appendChild(msg);
     messages.scrollTop = messages.scrollHeight;
 }
+
+// ---- Реакции на сообщения ----
+
+function renderReactionsInto(container, reactions, messageId, scope) {
+    container.innerHTML = "";
+    reactions.forEach(({ emoji, logins }) => {
+        if (!logins || logins.length === 0) return;
+
+        const pill = document.createElement("button");
+        pill.type = "button";
+        pill.className = "reaction-pill";
+        if (currentUser && logins.includes(currentUser.login)) {
+            pill.classList.add("mine");
+        }
+        pill.textContent = `${emoji} ${logins.length}`;
+        pill.title = logins.join(", ");
+        pill.addEventListener("click", () => sendReaction(messageId, scope, emoji));
+        container.appendChild(pill);
+    });
+}
+
+function updateReactionsOnMessage(scope, messageId, reactions) {
+    const el = document.querySelector(
+        `.message[data-scope="${scope}"][data-message-id="${messageId}"]`
+    );
+    if (!el) return;
+
+    const container = el.querySelector(".reactions-row");
+    if (container) renderReactionsInto(container, reactions, messageId, scope);
+}
+
+function sendReaction(messageId, scope, emoji) {
+    if (!ws || ws.readyState !== 1) return;
+    ws.send(JSON.stringify({ type: "toggle_reaction", scope, message_id: messageId, emoji }));
+}
+
+let reactionPickerEl = null;
+
+function closeReactionPicker() {
+    if (reactionPickerEl) {
+        reactionPickerEl.remove();
+        reactionPickerEl = null;
+    }
+    document.removeEventListener("click", closeReactionPicker);
+}
+
+function toggleReactionPicker(anchorBtn, messageId, scope) {
+    if (reactionPickerEl) {
+        closeReactionPicker();
+        return;
+    }
+
+    const picker = document.createElement("div");
+    picker.className = "reaction-picker";
+
+    REACTION_EMOJIS.forEach((emoji) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "reaction-picker-btn";
+        btn.textContent = emoji;
+        btn.addEventListener("click", (event) => {
+            event.stopPropagation();
+            sendReaction(messageId, scope, emoji);
+            closeReactionPicker();
+        });
+        picker.appendChild(btn);
+    });
+
+    document.body.appendChild(picker);
+
+    const rect = anchorBtn.getBoundingClientRect();
+    const pickerWidth = REACTION_EMOJIS.length * 32 + 16;
+    picker.style.position = "fixed";
+    picker.style.top = `${rect.bottom + 4}px`;
+    picker.style.left = `${Math.min(Math.max(8, rect.left - pickerWidth / 2), window.innerWidth - pickerWidth - 8)}px`;
+
+    reactionPickerEl = picker;
+    setTimeout(() => document.addEventListener("click", closeReactionPicker), 0);
+}
+
+// ---- Ответ на сообщение (как реплай в Telegram) ----
+
+function startReply(messageId, scope, authorLabel, text) {
+    replyingTo = { id: messageId, scope, authorLabel, text };
+    replyBarAuthor.textContent = authorLabel || "Сообщение";
+    replyBarText.textContent = text.length > 120 ? text.slice(0, 120) + "…" : text;
+    replyBar.style.display = "flex";
+    input.focus();
+}
+
+function cancelReply() {
+    replyingTo = null;
+    replyBar.style.display = "none";
+}
+
+cancelReplyBtn.addEventListener("click", cancelReply);
 
 function addSystemMessage(text) {
     const msg = document.createElement("div");
@@ -482,6 +677,7 @@ async function openPublicChat() {
     messages.innerHTML = "";
     addSystemMessage("Загрузка истории...");
     showChatPaneOnMobile();
+    cancelReply();
 
     // История общего чата придёт через WS при следующем auth,
     // но раз соединение уже открыто — просто попросим сервер снова
@@ -498,6 +694,7 @@ async function openPrivateChat(login, nickname, el) {
     messages.innerHTML = "";
     addSystemMessage("Загрузка переписки...");
     showChatPaneOnMobile();
+    cancelReply();
 
     try {
         const response = await fetch(
@@ -509,10 +706,20 @@ async function openPrivateChat(login, nickname, el) {
 
         if (data.success) {
             data.messages.forEach((msg) => {
+                let replyAuthorLabel = null;
+                if (msg.reply_to_id) {
+                    replyAuthorLabel = msg.reply_sender_login === currentUser.login
+                        ? currentUser.nickname
+                        : currentChat.nickname;
+                }
+
                 addMessage(null, msg.text, msg.sender_login === currentUser.login, msg.created_at, {
                     isPrivate: true,
                     isRead: !!msg.is_read,
                     messageId: msg.id,
+                    scope: "private",
+                    reply: msg.reply_to_id ? { authorLabel: replyAuthorLabel, text: msg.reply_text } : null,
+                    reactions: msg.reactions || [],
                 });
             });
 

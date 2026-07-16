@@ -479,3 +479,194 @@ button:hover { background: #4752C4; }
         width: 48px;
     }
 }
+
+/* ==========================================================================
+   Реакции, ответы на сообщение и связанный UI
+   ========================================================================== */
+
+.message {
+    position: relative;
+}
+
+/* Превью сообщения, на которое отвечают — компактный блок над текстом */
+.reply-preview {
+    border-left: 3px solid rgba(255,255,255,0.4);
+    padding: 4px 8px;
+    margin-bottom: 6px;
+    border-radius: 6px;
+    background: rgba(0,0,0,0.15);
+    cursor: default;
+}
+
+.reply-preview-author {
+    font-size: 12px;
+    font-weight: bold;
+    opacity: 0.85;
+}
+
+.reply-preview-text {
+    font-size: 12px;
+    opacity: 0.75;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* Кнопки "ответить" / "реакция" — показываются при наведении на сообщение */
+.message-actions {
+    position: absolute;
+    top: -14px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+.message.mine .message-actions {
+    right: 8px;
+}
+
+.message.other .message-actions {
+    left: 8px;
+}
+
+.message:hover .message-actions {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.message-action-btn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #1E1F22;
+    border: 1px solid rgba(255,255,255,0.15);
+    color: white;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    cursor: pointer;
+}
+
+.message-action-btn:hover {
+    background: #40444B;
+}
+
+/* Реакции под сообщением */
+.reactions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.reaction-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border: none;
+    border-radius: 12px;
+    background: rgba(0,0,0,0.25);
+    color: white;
+    font-size: 12px;
+    padding: 2px 8px;
+    cursor: pointer;
+    line-height: 1.6;
+}
+
+.reaction-pill:hover {
+    background: rgba(0,0,0,0.4);
+}
+
+.reaction-pill.mine {
+    background: #5865F2;
+}
+
+/* Всплывающая панель выбора эмодзи-реакции */
+.reaction-picker {
+    display: flex;
+    gap: 4px;
+    background: #232428;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 6px 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    z-index: 50;
+}
+
+.reaction-picker-btn {
+    border: none;
+    background: transparent;
+    font-size: 18px;
+    padding: 2px 4px;
+    cursor: pointer;
+    border-radius: 8px;
+}
+
+.reaction-picker-btn:hover {
+    background: rgba(255,255,255,0.1);
+}
+
+/* Панель "ответ на сообщение" над полем ввода */
+.replyBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #1E1F22;
+    padding: 8px 15px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    gap: 10px;
+}
+
+.replyBarContent {
+    border-left: 3px solid #5865F2;
+    padding-left: 8px;
+    overflow: hidden;
+    flex: 1;
+}
+
+.replyBarAuthor {
+    font-size: 12px;
+    font-weight: bold;
+    color: #6EA8FE;
+}
+
+.replyBarText {
+    font-size: 12px;
+    color: #b9bbbe;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cancelReplyBtn {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: #b9bbbe;
+    font-size: 14px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.cancelReplyBtn:hover {
+    background: rgba(255,255,255,0.1);
+    color: white;
+}
+
+/* На мобильном кнопки "ответить/реакция" по наведению не сработают (нет hover) —
+   показываем их всегда, но компактнее, чтобы не мешали читать */
+@media (max-width: 700px) {
+    .message-actions {
+        opacity: 1;
+        pointer-events: auto;
+        position: static;
+        margin-top: 4px;
+    }
+}
