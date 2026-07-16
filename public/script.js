@@ -11,7 +11,9 @@ const authMessage = document.getElementById("authMessage");
 const input = document.getElementById("messageInput");
 const button = document.getElementById("sendButton");
 const messages = document.getElementById("messages");
-const chatHeader = document.getElementById("chatHeader");
+const chatHeader = document.getElementById("chatHeaderText");
+const backToContacts = document.getElementById("backToContacts");
+const MOBILE_BREAKPOINT = 700;
 const contactsList = document.getElementById("contactsList");
 const publicChatItem = document.getElementById("publicChatItem");
 const newContactLogin = document.getElementById("newContactLogin");
@@ -126,13 +128,72 @@ function enterChat(user) {
     connectWebSocket();
     loadConversations();
     requestNotificationPermission();
+    initPushNotifications();
+}
+
+// ---- Push-уведомления внутри APK-приложения (Capacitor) ----
+// В обычном браузере window.Capacitor не существует — вся функция
+// просто ничего не делает, ошибок не будет.
+function initPushNotifications() {
+    if (!window.Capacitor || !window.Capacitor.isNativePlatform || !window.Capacitor.isNativePlatform()) {
+        return;
+    }
+
+    const { PushNotifications } = window.Capacitor.Plugins;
+    if (!PushNotifications) return;
+
+    PushNotifications.requestPermissions()
+        .then((result) => {
+            if (result.receive === "granted") {
+                PushNotifications.register();
+            }
+        })
+        .catch((err) => console.error("Ошибка запроса разрешения на push:", err));
+
+    PushNotifications.addListener("registration", (token) => {
+        fetch("/register-push-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ login: currentUser.login, token: token.value })
+        }).catch((err) => console.error("Не удалось отправить push-токен на сервер:", err.message));
+    });
+
+    PushNotifications.addListener("registrationError", (err) => {
+        console.error("Ошибка регистрации push:", err);
+    });
 }
 
 // ---- Звуковые и браузерные уведомления о новых личных сообщениях ----
 
-let audioCtx = null;
+// Файл со своим звуком уведомления. Положи его в public/notification.mp3 —
+// если файла нет или он не проигрался, автоматически используется запасной
+// процедурный звук (два коротких тона), чтобы уведомления не пропадали совсем.
+const NOTIFICATION_SOUND_URL = "notification.mp3";
+let notificationAudio = null;
 
 function playNotificationSound() {
+    try {
+        if (!notificationAudio) {
+            notificationAudio = new Audio(NOTIFICATION_SOUND_URL);
+            notificationAudio.volume = 0.6;
+        }
+
+        // currentTime = 0 нужен, чтобы звук проигрывался заново,
+        // даже если предыдущее уведомление ещё не отзвучало
+        notificationAudio.currentTime = 0;
+        notificationAudio.play().catch(() => {
+            // Файла нет, браузер заблокировал автоплей, формат не поддержан и т.д.
+            // — подстраховываемся процедурным звуком, чтобы не остаться совсем без сигнала
+            playFallbackTone();
+        });
+    } catch (err) {
+        playFallbackTone();
+    }
+}
+
+let audioCtx = null;
+
+function playFallbackTone() {
     try {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -398,12 +459,29 @@ function setActiveContactItem(el) {
     el.classList.add("active");
 }
 
+function isMobileLayout() {
+    return window.innerWidth <= MOBILE_BREAKPOINT;
+}
+
+function showChatPaneOnMobile() {
+    if (isMobileLayout()) {
+        chatContainer.classList.add("mobile-chat-open");
+    }
+}
+
+function showContactsPaneOnMobile() {
+    chatContainer.classList.remove("mobile-chat-open");
+}
+
+backToContacts.addEventListener("click", showContactsPaneOnMobile);
+
 async function openPublicChat() {
     currentChat = { type: "public" };
     chatHeader.textContent = "AntiRKNet — Общий чат";
     setActiveContactItem(publicChatItem);
     messages.innerHTML = "";
     addSystemMessage("Загрузка истории...");
+    showChatPaneOnMobile();
 
     // История общего чата придёт через WS при следующем auth,
     // но раз соединение уже открыто — просто попросим сервер снова
@@ -419,6 +497,7 @@ async function openPrivateChat(login, nickname, el) {
     clearContactUnread(login);
     messages.innerHTML = "";
     addSystemMessage("Загрузка переписки...");
+    showChatPaneOnMobile();
 
     try {
         const response = await fetch(
