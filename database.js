@@ -59,18 +59,6 @@ async function initDB() {
         // столбец уже существует — это нормально
     }
 
-    // Миграция для ответов на конкретное сообщение (как реплай в Telegram)
-    try {
-        await db.execute(`ALTER TABLE messages ADD COLUMN reply_to_id INTEGER`);
-    } catch (err) {
-        // столбец уже существует — это нормально
-    }
-    try {
-        await db.execute(`ALTER TABLE private_messages ADD COLUMN reply_to_id INTEGER`);
-    } catch (err) {
-        // столбец уже существует — это нормально
-    }
-
     // Токены устройств для push-уведомлений (мобильное приложение)
     await db.execute(`
         CREATE TABLE IF NOT EXISTS push_tokens (
@@ -78,22 +66,6 @@ async function initDB() {
             login TEXT NOT NULL,
             token TEXT UNIQUE NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    `);
-
-    // Реакции (эмодзи) на сообщения. scope различает общий чат и личные —
-    // id сообщений в этих двух таблицах независимые, поэтому scope обязателен.
-    // Один пользователь — одна реакция на сообщение (как в Telegram):
-    // повторный клик тем же эмодзи снимает реакцию, другим — заменяет её.
-    await db.execute(`
-        CREATE TABLE IF NOT EXISTS reactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            scope TEXT NOT NULL,
-            message_id INTEGER NOT NULL,
-            login TEXT NOT NULL,
-            emoji TEXT NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(scope, message_id, login)
         )
     `);
 
